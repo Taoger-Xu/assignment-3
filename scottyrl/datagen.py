@@ -32,8 +32,10 @@ def extension_suffix(accumulated: list[int], prompt_tokens: list[int]) -> list[i
         extension_suffix([1, 2, 3], [1, 2])          -> None
         extension_suffix([], [1, 2])                 -> [1, 2]  (an empty sequence is a prefix of anything)
     """
-    # TODO(student): implement this function.
-    raise NotImplementedError
+    prefix_length = len(accumulated)
+    if prompt_tokens[:prefix_length] != accumulated:
+        return None
+    return prompt_tokens[prefix_length:]
 
 
 def stitch_trajectory(traj: Trajectory) -> list[TokenSequence]:
@@ -78,8 +80,56 @@ def stitch_trajectory(traj: Trajectory) -> list[TokenSequence]:
 
     Returns: list of TokenSequence (possibly empty).
     """
-    # TODO(student): implement this function.
-    raise NotImplementedError
+    result: list[TokenSequence] = []
+
+    tokens: list[int] = []
+    mask: list[int] = []
+    logprobs: list[float] = []
+
+    def append_token(token: int, is_action: bool, logprob: float = 0.0) -> None:
+        # 第一个 token 没有前一个 token 来预测它，因此没有对应的 mask 位置。
+        # 每加入一个 token，只有它前面已有 token 时，才增加 mask 和 logprobs。
+        if tokens:
+            mask.append(1 if is_action else 0)
+            logprobs.append(logprob if is_action else 0.0)
+        tokens.append(token)
+
+    def save_current() -> None:
+        if len(tokens) >= 2 and any(mask):
+            result.append(
+                TokenSequence(
+                    tokens=tokens.copy(),
+                    mask=mask.copy(),
+                    logprobs=logprobs.copy(),
+                    advantages=[0.0] * len(mask),
+                )
+            )
+
+    for call in traj.calls:
+        if len(call.completion_tokens) != len(call.completion_logprobs):
+            raise ValueError("Completion tokens and logprobs must have equal lengths")
+
+        suffix = extension_suffix(tokens, call.prompt_tokens)
+
+        if suffix is None:
+            save_current()
+            tokens = []
+            mask = []
+            logprobs = []
+            suffix = call.prompt_tokens
+
+        # prompt 新增的部分来自上下文或环境，不属于模型动作。
+        for token in suffix:
+            append_token(token, is_action=False)
+
+        # completion 中的 token 才是模型生成的动作。
+        for token, logprob in zip(
+            call.completion_tokens, call.completion_logprobs
+        ):
+            append_token(token, is_action=True, logprob=logprob)
+
+    save_current()
+    return result
 
 
 def trajectory_to_training_sequences(traj: Trajectory, advantage: float) -> list[TokenSequence]:
@@ -88,5 +138,12 @@ def trajectory_to_training_sequences(traj: Trajectory, advantage: float) -> list
     position stays 0.0. (In REINFORCE/GRPO, all tokens the policy generated
     in an episode share the episode-level advantage.)
     """
-    # TODO(student): implement this function.
-    raise NotImplementedError
+    sequences = stitch_trajectory(traj)
+
+    for sequence in sequences:
+        sequence.advantages = [
+            float(advantage) if is_action == 1 else 0.0
+            for is_action in sequence.mask
+        ]
+
+    return sequences
