@@ -362,7 +362,7 @@ TokenSequence 已经把这些**按 target 位置对齐**（`mask` / `logprobs` /
 | 情况 | 一个 Trajectory 产出的 TokenSequence 数量 |
 |---|---|
 | 扩展一直成立（正常情况） | 1 条 |
-| 扩展中途断开（`<|endoftext|>` 结束、删除 `<think>`） | 多条 |
+| 扩展中途断开（`<\|endoftext\|>` 结束、删除 `<think>`） | 多条 |
 | 所在组为退化组（GRPO 组内奖励全部相同） | 0 条 |
 | 没有任何 action token 可训练 | 0 条 |
 

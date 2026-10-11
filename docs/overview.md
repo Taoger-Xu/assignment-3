@@ -80,7 +80,7 @@ calls[i+1].prompt_tokens == calls[i].prompt_tokens + calls[i].completion_tokens 
 - `model.preserve_thinking_history: false`：历史中的 `<think>` 被删掉，prompt 被重写；
 - 模型以 `<|endoftext|>` 而不是 `<|im_end|>` 停止，模板回填的结尾不同。
 
-`datagen.stitch_trajectory` 必须同时处理"能拼"与"断开"两种情况。
+`datagen.stitch_trajectory` 必须同时处理"能拼"与"断开"两种情况。模板、停止符、思维链等基础概念见 [template.md](template.md)。
 
 ### 2.4 损失函数与算法（由 config 两个字段独立控制）
 
@@ -171,7 +171,7 @@ calls[i+1].prompt_tokens == calls[i].prompt_tokens + calls[i].completion_tokens 
 
 ### Part 0：热身（0 分）
 
-阅读 [agents/xml_tool_call.py](../scottyrl/agents/xml_tool_call.py)、[rollout.py](../scottyrl/rollout.py)、[envs/](../scottyrl/envs/)，理解一个回合如何产生 `Trajectory`。
+阅读 [agents/xml_tool_call.py](../scottyrl/agents/xml_tool_call.py)、[rollout.py](../scottyrl/rollout.py)、[envs/](../scottyrl/envs/)，理解一个回合如何产生 `Trajectory`。代码分析与 `async` / `await` 的解释见 [part0.md](part0.md)。
 
 ### Part 1：数据管线（20 分）——纯代码，无需 GPU
 
@@ -186,6 +186,8 @@ calls[i+1].prompt_tokens == calls[i].prompt_tokens + calls[i].completion_tokens 
 - `trajectory_to_training_sequences(traj, advantage)`：先 stitch，再把标量优势广播到所有 `mask==1` 的位置。
 
 **最容易出错的地方：off-by-one。** 长度为 L 的上下文后接长度为 c 的 completion，对应的位置是 `L-1 : L-1+c`，不是 `L : L+c`。
+
+**解答思路**：各函数的详细分析见 [part1.md](part1.md)。
 
 **测试**：`uv run pytest tests/test_interfaces.py -k "advantages or datagen"`；`tests/test_envs.py` 中的 `ThinkStrippingPolicy` 可以构造"扩展断开"的回合。
 
