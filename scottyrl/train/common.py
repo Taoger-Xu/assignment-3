@@ -37,7 +37,11 @@ async def collect_group(
     Returns: `group_size` trajectories, in rollout order.
     """
     # TODO(student): implement this function.
-    raise NotImplementedError
+    rollouts = [
+        run_episode(agent_cls(policy), env_factory(task))
+        for _ in range(group_size)
+    ]
+    return list(await asyncio.gather(*rollouts))
 
 
 def groups_to_batch(
@@ -65,5 +69,42 @@ def groups_to_batch(
         "num_sequences"           len(sequences)
         "num_action_tokens"       total mask==1 positions in the batch
     """
-    # TODO(student): implement this function.
-    raise NotImplementedError
+    sequences: list[TokenSequence] = []
+    all_rewards: list[float] = []
+    num_degenerate_groups = 0
+
+    for group in groups:
+        # 一组中的轨迹来自同一道题；优势值只在这一组内比较。
+        rewards = [traj.reward for traj in group]
+
+        # 退化组虽然不参与训练，其奖励仍计入总体平均奖励。
+        all_rewards.extend(rewards)
+
+        advantages = compute_group_advantages(rewards, method=method)
+        if advantages is None:
+            num_degenerate_groups += 1
+            continue
+
+        # advantages 与 group 顺序一致：每条轨迹使用自己的优势值。
+        # 一条轨迹可能因序列拓展中断而产生多条训练序列。
+        for traj, advantage in zip(group, advantages):
+            sequences.extend(
+                trajectory_to_training_sequences(traj, advantage)
+            )
+    num_groups = len(groups)
+    stats = {
+        "num_groups": num_groups,
+        "num_degenerate_groups": num_degenerate_groups,
+        "frac_degenerate_groups": (
+            num_degenerate_groups / num_groups if num_groups else 0.0
+        ),
+        "mean_reward": (
+            sum(all_rewards) / len(all_rewards) if all_rewards else 0.0
+        ),
+        "num_sequences": len(sequences),
+        # mask==1 的位置才是参与训练的模型生成 token。
+        "num_action_tokens": sum(
+            sequence.num_action_tokens for sequence in sequences
+        ),
+    }
+    return sequences, stats

@@ -336,8 +336,23 @@ class TinkerSession:
         """
         import tinker
 
-        # TODO(student): implement this method.
-        raise NotImplementedError
+        params = tinker.AdamParams(
+            learning_rate=lr,
+            grad_clip_norm=grad_clip_norm,
+        )
+
+        # 两个调用先后提交到服务端；此时都还不等待计算结果。
+        fwd_future = await self.training_client.forward_backward_async(
+            datums,
+            loss_fn=loss_fn,
+        )
+
+        opt_future = await self.training_client.optim_step_async(params)
+
+        # 两个请求都提交后，再分别取得结果。
+        fwd_result = await fwd_future.result_async()
+        opt_result = await opt_future.result_async()
+        return fwd_result, opt_result
 
     async def train_step(
         self,

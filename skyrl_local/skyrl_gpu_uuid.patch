@@ -1,0 +1,36 @@
+diff --git a/skyrl/backends/skyrl_train/workers/worker.py b/skyrl/backends/skyrl_train/workers/worker.py
+index b56d56b..5b3eec4 100644
+--- a/skyrl/backends/skyrl_train/workers/worker.py
++++ b/skyrl/backends/skyrl_train/workers/worker.py
+@@ -2,6 +2,7 @@ import asyncio
+ import logging
+ import os
+ import socket
++import subprocess
+ from collections import defaultdict
+ from contextlib import contextmanager
+ from ctypes import CDLL, POINTER, Structure, c_char_p, c_int, c_ulong, c_void_p
+@@ -179,10 +180,19 @@ class DistributedTorchRayActor:
+     # TODO(tgriggs): For numa affinity, pass in the Worker._local_rank for the second arg here. Distinguish 'rank' and 'local_rank' differ here.
+     def _set_numa_affinity(self, rank):
+         def local_rank_to_real_gpu_id(local_rank):
+-            cuda_visible_devices = [
+-                int(x) for x in os.environ.get("CUDA_VISIBLE_DEVICES", "0,1,2,3,4,5,6,7").split(",")
+-            ]
+-            return cuda_visible_devices[local_rank]
++            visible = os.environ.get("CUDA_VISIBLE_DEVICES", "0,1,2,3,4,5,6,7").split(",")
++            selected = visible[local_rank]
++            if selected.startswith("GPU-"):
++                rows = subprocess.check_output(
++                    ["nvidia-smi", "--query-gpu=index,uuid", "--format=csv,noheader"],
++                    text=True,
++                )
++                for row in rows.splitlines():
++                    index, uuid = (field.strip() for field in row.split(",", 1))
++                    if uuid == selected:
++                        return int(index)
++                raise ValueError(f"GPU UUID {selected} was not found by nvidia-smi")
++            return int(selected)
+ 
+         rank = local_rank_to_real_gpu_id(rank)
+ 
