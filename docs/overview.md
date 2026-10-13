@@ -207,6 +207,8 @@ calls[i+1].prompt_tokens == calls[i].prompt_tokens + calls[i].completion_tokens 
   - `evaluate_now`：前 `eval_tasks` 个验证任务，每个跑 `eval_k` 次；
   - `train`：开始前保存快照 `step_000000`，每步更新后保存 `step_{t:06d}` 并刷新 policy（保证 on-policy）；batch 为空时是 **skipped step**，不更新、不保存快照，但仍调用一次 `record_training(step, [], {})`；`eval_due(step)` 为真时评估当前 policy（step 0 的基线由入口脚本完成）。
 
+**逻辑链**：各函数如何串成同步训练循环见 [part2.md](part2.md)。
+
 **测试**：`uv run pytest tests/test_interfaces.py tests/test_contracts.py -k "not async"`
 
 **实验**（部署 `serve_number_search_sync.py`，2×H100 共置）
