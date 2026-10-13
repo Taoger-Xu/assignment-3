@@ -292,8 +292,28 @@ class AsyncGRPOTrainer:
         them with whatever happens to be current after rollout work awaits.
         """
         # TODO(student): implement this method.
-        raise NotImplementedError
+        # ① 先查任务：未知 id 立即抛 KeyError，此时还没有启动任何 rollout
+        task = self.tasks_by_id[task_id]
 
+        # ② 用传入的 policy 运行一组 rollout；必须调用模块级的 collect_group
+        group = await collect_group(
+            policy,
+            task,
+            self.env_factory,
+            self.cfg.group_size,
+            agent_cls=self.agent_cls()
+        )
+        # ③ 组内计算 GRPO 优势并拼成训练序列；退化组得到 []
+
+        sequences, rewards = groups_to_batch([group], method="grpo")
+
+        # ④⑤ 总是返回 GroupResult；版本号用传入的 version，而不是 self.version
+        return GroupResult(
+            task_id=task_id,
+            policy_version=version,
+            sequences=sequences,
+            rewards=[traj.reward for traj in group],
+        )
     async def rollout_worker(
         self,
         results: asyncio.Queue[GroupResult],
