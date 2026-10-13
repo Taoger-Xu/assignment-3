@@ -224,7 +224,7 @@ calls[i+1].prompt_tokens == calls[i].prompt_tokens + calls[i].completion_tokens 
 
 ### Part 3：异步 GRPO（25 分）
 
-> 异步的详细解释（group 与 batch 的关系、陈旧度模拟、与经典 off-policy 的区别）见 [async.md](async.md)。
+> 异步的详细解释（group 与 batch 的关系、陈旧度模拟、与经典 off-policy 的区别）见 [async.md](async.md)；asyncio 用法、按文件梳理的架构、设计分析与参考实现见 [async-design.md](async-design.md)。
 
 **设计**：生产者-消费者。
 
